@@ -94,11 +94,14 @@ def plot_magnitudes(mags=None, errors=None, times=None, source=None, night=None,
     #change the xlims of the plot to reflect the times
     plt.xlim(times.min(), times.max())
     #Plots a line correspinding to the mean
-    plt.plot(plt.xlim(), [mean, mean], 'k--', )
+    #plt.plot(plt.xlim(), [mean, mean], 'k--', )
+    axes[0].axhline(mean, color='gray', linewidth=2)
     #plots a line corresponding to the upper limit of the mean
-    plt.plot(plt.xlim(), [mean + std, mean + std], 'k:')
+    #plt.plot(plt.xlim(), [mean + std, mean + std], 'k:')
+    axes[1].axhline(mean + std, color='gray', linewidth=2)
     #plots a line corresponding to the lower limit of the mean
-    plt.plot(plt.xlim(), [mean - std, mean - std], 'k:')
+    #plt.plot(plt.xlim(), [mean - std, mean - std], 'k:')
+    axes[2].axhline(mean - std, color='gray', linewidth=2)
     #Following Line was commented out:
     plt.plot(pd.rolling_mean(times, 20, center=True), 
              pd.rolling_mean(mags, 20, center=True),
@@ -127,6 +130,7 @@ def plot_magnitudes(mags=None, errors=None, times=None, source=None, night=None,
     #send back the mean and the standard deviation of the plot
     return mean, std
 
+'''
 #Define the function to be used to plot the differential magnitudes
 def plot_magnitudes_viewer(mags=None, errors=None, times=None, source=None, night=None, ref_mag=0, color=None):
     #calcualte the mean of the magnitudes passed
@@ -162,7 +166,7 @@ def plot_magnitudes_viewer(mags=None, errors=None, times=None, source=None, nigh
     plt.legend()
     #send back the mean and the standard deviation of the plot
     return mean, std
-
+'''
 def find_apass_stars(image):
     #use the catalog_search function to find the apass stars in the frame of the image read above
     apass, apass_x, apass_y = catalog_search(image.wcs, image.shape, 'II/336/apass9', 'RAJ2000', 'DEJ2000')
@@ -180,6 +184,10 @@ def find_known_variables(image):
     vsx, vsx_x, vsx_y = catalog_search(image.wcs, image.shape, 'B/vsx/vsx', 'RAJ2000', 'DEJ2000')
     vsx_names = vsx['Name']      #Get the names of the variables
     return vsx, vsx_x, vsx_y, vsx_names
+
+def find_stars_from_catalog(image, catatalog):
+    cat, x, y = catalog_search(image.wcs, image.shap, catalog, 'RAJ2000', 'DEJ2000')
+    return 0
 
 def plot_apass_variables(image, disp, vsx_x, vsx_y, vsx_names, apass, in_apass_x, in_apass_y, apass_x, apass_y):
     plt.figure(figsize=(12, 7))
@@ -318,6 +326,7 @@ def corrected_curves(aij_mags, aij_stars, all_apass_color, all_apass_color_error
         corrected_curves[obj] = np.array(tmp_data)
     return corrected_curves
 
+'''
 ############################################################################################################
 #Huber Loss Functions from 'Statistics, Data Mining, and Machine Learning in Astronomy' (Ivezic et al. 2014)
 
@@ -328,3 +337,4 @@ def huber_loss(m, b, x, y, dy, c=2):
     flag = t > c
     return np.sum((~flag) * (0.5 * t ** 2) - (flag) * c * (0.5 * c - t), -1)
 ############################################################################################################
+'''
