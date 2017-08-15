@@ -26,11 +26,11 @@ def source_ra(source_number):                #Returns the the column heading for
     return col_name
 
 def source_error(source_number):             #Returns the column heading for a star's source-sky error in the measurements file
-    col_name = 'Source-Sky_C'+str(source_number)
+    col_name = 'Source_Error_C'+str(source_number)
     return col_name
 
 def source_column(source_number):            #REturns the column heading for a star's source-sky in the measurements file
-    col_name = 'Source_Error_C'+str(source_number)
+    col_name = 'Source-Sky_C'+str(source_number)
     return col_name
 
 def uniformize_source_names(aij_tbl):        #Uniformizes the source names in the columns of the measurements file
