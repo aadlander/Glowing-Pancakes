@@ -2,6 +2,7 @@ from __future__ import print_function, division
 from astropy.visualization import scale_image
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import axes
 import pandas as pd
 from astropy.modeling import models, fitting
 from astropy.stats import sigma_clip
@@ -94,14 +95,14 @@ def plot_magnitudes(mags=None, errors=None, times=None, source=None, night=None,
     #change the xlims of the plot to reflect the times
     plt.xlim(times.min(), times.max())
     #Plots a line correspinding to the mean
-    #plt.plot(plt.xlim(), [mean, mean], 'k--', )
-    axes[0].axhline(mean, color='gray', linewidth=2)
+    plt.plot(plt.xlim(), [mean, mean], 'k--', )
+    #axes.Axes[0].axvline(mean, color='gray', linewidth=2)
     #plots a line corresponding to the upper limit of the mean
-    #plt.plot(plt.xlim(), [mean + std, mean + std], 'k:')
-    axes[1].axhline(mean + std, color='gray', linewidth=2)
+    plt.plot(plt.xlim(), [mean + std, mean + std], 'k:')
+    #axes.Axes[1].axvline(mean + std, color='gray', linewidth=2)
     #plots a line corresponding to the lower limit of the mean
-    #plt.plot(plt.xlim(), [mean - std, mean - std], 'k:')
-    axes[2].axhline(mean - std, color='gray', linewidth=2)
+    plt.plot(plt.xlim(), [mean - std, mean - std], 'k:')
+    #axes.Axes[2].axvline(mean - std, color='gray', linewidth=2)
     #Following Line was commented out:
     plt.plot(pd.rolling_mean(times, 20, center=True), 
              pd.rolling_mean(mags, 20, center=True),
@@ -130,43 +131,7 @@ def plot_magnitudes(mags=None, errors=None, times=None, source=None, night=None,
     #send back the mean and the standard deviation of the plot
     return mean, std
 
-'''
-#Define the function to be used to plot the differential magnitudes
-def plot_magnitudes_viewer(mags=None, errors=None, times=None, source=None, night=None, ref_mag=0, color=None):
-    #calcualte the mean of the magnitudes passed
-    mean = mags.mean()
-    #calcualte the standard deviation of the magntiudes passed
-    std = mags.std()
-    #plot the magnitudes vs time
-    plt.errorbar(times, mags, yerr=errors, fmt='o',
-                 label='{}, stdev: {:5.3f}\nnight: {}'.format(source, std, night))
-    #change the xlims of the plot to reflect the times
-    plt.xlim(times.min(), times.max())
-    #Plots a line correspinding to the mean
-    plt.plot(plt.xlim(), [mean, mean], 'k--', )
-    #plots a line corresponding to the upper limit of the mean
-    plt.plot(plt.xlim(), [mean + std, mean + std], 'k:')
-    #plots a line corresponding to the lower limit of the mean
-    plt.plot(plt.xlim(), [mean - std, mean - std], 'k:')
 
-    # Make sure plot range is at least 0.1 mag...
-    min_range = 0.1
-    #find the ylim of the plot
-    ylim = plt.ylim()
-    #check if the difference in the limits is less then the min range
-    if ylim[1] - ylim[0] < min_range:
-        #if less then the mid range then change the y limits to be min_range different
-        plt.ylim(mean - min_range/2, mean + min_range/2)
-    
-    #find the new ylim of the plot
-    ylim = plt.ylim()
-    # Reverse vertical axis so brighter is higher
-    plt.ylim((ylim[1], ylim[0]))    
-    plt.title(color)
-    plt.legend()
-    #send back the mean and the standard deviation of the plot
-    return mean, std
-'''
 def find_apass_stars(image):
     #use the catalog_search function to find the apass stars in the frame of the image read above
     apass, apass_x, apass_y = catalog_search(image.wcs, image.shape, 'II/336/apass9', 'RAJ2000', 'DEJ2000')
@@ -326,15 +291,4 @@ def corrected_curves(aij_mags, aij_stars, all_apass_color, all_apass_color_error
         corrected_curves[obj] = np.array(tmp_data)
     return corrected_curves
 
-'''
-############################################################################################################
-#Huber Loss Functions from 'Statistics, Data Mining, and Machine Learning in Astronomy' (Ivezic et al. 2014)
 
-# Define the log-likelihood via the Huber loss function
-def huber_loss(m, b, x, y, dy, c=2):
-    y_fit = m * x + b
-    t = abs((y - y_fit) / dy)
-    flag = t > c
-    return np.sum((~flag) * (0.5 * t ** 2) - (flag) * c * (0.5 * c - t), -1)
-############################################################################################################
-'''
