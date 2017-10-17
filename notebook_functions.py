@@ -1,5 +1,5 @@
 from __future__ import print_function, division
-from astropy.visualization import scale_image
+from astropy.visualization import simple_norm
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import axes
@@ -13,10 +13,10 @@ def scale_and_downsample(data, downsample=4,
                          min_percent=20,
                          max_percent=99.5):
 
-    scaled_data = scale_image(data,
+    norm = simple_norm(data,
                               min_percent=min_percent,
                               max_percent=max_percent)
-
+    scaled_data = norm(data)
     if downsample > 1:
         scaled_data = block_reduce(scaled_data,
                                    block_size=(downsample, downsample))
@@ -95,14 +95,14 @@ def plot_magnitudes(mags=None, errors=None, times=None, source=None, night=None,
     #change the xlims of the plot to reflect the times
     plt.xlim(times.min(), times.max())
     #Plots a line correspinding to the mean
-    plt.plot(plt.xlim(), [mean, mean], 'k--', )
-    #axes.Axes[0].axvline(mean, color='gray', linewidth=2)
+    #plt.plot(plt.xlim(), [mean, mean], 'k--', )
+    plt.axvline(mean, color='gray', linewidth=2)
     #plots a line corresponding to the upper limit of the mean
-    plt.plot(plt.xlim(), [mean + std, mean + std], 'k:')
-    #axes.Axes[1].axvline(mean + std, color='gray', linewidth=2)
+    #plt.plot(plt.xlim(), [mean + std, mean + std], 'k:')
+    plt.axvline(mean + std, color='gray', linewidth=2)
     #plots a line corresponding to the lower limit of the mean
-    plt.plot(plt.xlim(), [mean - std, mean - std], 'k:')
-    #axes.Axes[2].axvline(mean - std, color='gray', linewidth=2)
+    #plt.plot(plt.xlim(), [mean - std, mean - std], 'k:')
+    plt.axvline(mean - std, color='gray', linewidth=2)
     #Following Line was commented out:
     plt.plot(pd.rolling_mean(times, 20, center=True), 
              pd.rolling_mean(mags, 20, center=True),
@@ -134,10 +134,10 @@ def plot_magnitudes(mags=None, errors=None, times=None, source=None, night=None,
 
 def find_apass_stars(image):
     #use the catalog_search function to find the apass stars in the frame of the image read above
-    apass, apass_x, apass_y = catalog_search(image.wcs, image.shape, 'II/336/apass9', 'RAJ2000', 'DEJ2000')
+    apass, apass_x, apass_y = catalog_search(image.wcs, image.shape, 'II/336/apass9', 'RAJ2000', 'DEJ2000', 1, False)
 
     #Creates a boolean array of the apass stars that have well defined magnitudes and color
-    apass_bright = (apass['e_r_mag'] < 0.05) & (apass['u_e_r_mag'] == 0) & (apass['e_B-V'] < 0.1)
+    apass_bright = (apass['e_r_mag'] < 0.05) & (apass['e_B-V'] < 0.1) #& (apass['u_e_r_mag'] == 0)
 
     #create new lists of apass stars and x y pixel coordinates using boolean array
     apass_in_bright, in_apass_x, in_apass_y = apass[apass_bright], apass_x[apass_bright], apass_y[apass_bright]
