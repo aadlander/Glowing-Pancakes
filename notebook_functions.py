@@ -194,47 +194,77 @@ def color_corrections(aij_stars, aij_mags,apass_index, apass_color, apass_R_mags
     #Create empy list for the error in the corrections
     fit_error = []
     all_Rminusr_error = []
+    all_aij_mags = np.zeros_like(aij_mags)
+    for idx, star in enumerate(aij_stars):
+        all_aij_mags[idx, :] = star.magnitude
+    all_aij_mags = np.ma.masked_invalid(all_aij_mags)
     #loop over all images
     for idx in range(aij_mags.shape[1]):
         #create BminusV list
-        BminusV = []
-        #Create Rminusr list
-        Rminusr = []
-        #loop over the apass_index and the placement in the apass_index
-        for aij_star, el in enumerate(apass_index):
-            #check if the aij star has a corresponding apass match
-            if good_match[aij_star]:     
-                #Make sure the aij stars magnitude in the image isn't friggin huge
-                if aij_stars[aij_star].magnitude[idx] < 100:       
-                    #Add the color of that star (according to apass) to the bminusv list
-                    BminusV.append(apass_color[el])  
-                    #add the difference between aijs magnitude and apass transformed magnitude to the Rminusr list 
-                    Rminusr.append(apass_R_mags[el]-aij_stars[aij_star].magnitude[idx])
-                #No idea what this is meant to do
-                #if Rminusr[-1] < 20 and idx == 0:
-                #print(aij_star)             
-   
-        Rminusr_new = np.array([d for d in Rminusr if d != 'masked'])
-        BminusV_new = np.array([b for b,d in zip(BminusV, Rminusr) if d != 'masked'])
-        #Astropy Fit
+        # BminusV = []
+        # # Create Rminusr list
+        # Rminusr = []
+        # # loop over the apass_index and the placement in the apass_index
+        # for aij_star, el in enumerate(apass_index):
+        #     # check if the aij star has a corresponding apass match
+        #     if good_match[aij_star]:
+        #         # Make sure the aij stars magnitude in the image isn't friggin huge
+        #         if aij_stars[aij_star].magnitude[idx] < 100:
+        #             # Add the color of that star (according to apass) to the bminusv list
+        #             BminusV.append(apass_color[el])
+        #             # add the difference between aijs magnitude and apass transformed magnitude to the Rminusr list
+        #             Rminusr.append(apass_R_mags[el]-aij_stars[aij_star].magnitude[idx])
+        #         # No idea what this is meant to do
+        #         # if Rminusr[-1] < 20 and idx == 0:
+        #         # print(aij_star)
+
+        # Rminusr_new = np.array([d for d in Rminusr if d != 'masked'])
+        # BminusV_new = np.array([b for b,d in zip(BminusV, Rminusr) if d != 'masked'])
+        # print(len(Rminusr) - len(Rminusr_new))
+        these_mags = all_aij_mags[:, idx]
+        Rminusr_new = (apass_R_mags[apass_index] - these_mags)[good_match]
+        BminusV_new = apass_color[apass_index][good_match]
+        # good_stars = np.arange(0, len(aij_stars))[good_match]
+        # good_index = apass_index.copy()[good_match]
+        # tmp_aij_mags = np.array([aij_stars[i].magnitude[idx] for i in good_stars])
+        # # print(len(good_index), len(aij_mags))
+        # Rminusr_new = (apass_R_mags[good_index] - tmp_aij_mags)
+        Rminusr_new = np.ma.masked_invalid(Rminusr_new)
+        # Rmr_mask = Rminusr_new.mask
+        # print(any(Rminusr_new < -30))
+        # print(Rminusr_new.min())
+        # # print(Rmr_mask)
+        # BminusV_new = apass_color[good_index][~Rmr_mask]
+        # Rminusr_new = Rminusr_new[~Rmr_mask]
+        # Rminusr_new = np.ma.masked_invalid(Rminusr_new)
+        # BminusV_new = np.ma.masked_invalid(BminusV_new)
+        combined_mask = Rminusr_new.mask & BminusV_new.mask
+        Rminusr_new = Rminusr_new[~combined_mask]
+        BminusV_new = BminusV_new[~combined_mask]
+        # print(len(BminusV_new), len(Rminusr_new))
+        # Rminusr_new = np.array(Rminusr)
+        # BminusV_new = np.array(BminusV)
+        # Astropy Fit
         g_init = models.Polynomial1D(1)
         fit = fitting.LevMarLSQFitter()
-        or_fit = fitting.FittingWithOutlierRemoval(fit, sigma_clip, niter=3, sigma=3.0)
+        or_fit = fitting.FittingWithOutlierRemoval(fit, sigma_clip, niter=3, sigma=2.0)
         # get fitted model and filtered data
         filtered_data, or_fitted_model = or_fit(g_init, BminusV_new, Rminusr_new)
-        fitted_model = fit(g_init, BminusV_new, Rminusr_new)
-        #print(fitted_model)
-        #append corrections data to list 
+        # fitted_model = fit(g_init, BminusV_new, Rminusr_new)
+        # print(fitted_model)
+        # append corrections data to list
         fit_list = [or_fitted_model.c1.value, or_fitted_model.c0.value]
         corrections.append(fit_list)
-    
-        plt.ylim(20,21)
-        plt.title(idx)
-        plt.plot(BminusV_new, Rminusr_new, 'o')
-        plt.plot(BminusV_new, or_fitted_model(BminusV_new), 'g--', label="model fitted w/ filtered data")
-        plt.show()
+
+        # plt.ylim(or_fitted_model.c0.value - 0.5,
+        #          or_fitted_model.c0.value + 0.5)
+        # plt.title(idx)
+        # plt.plot(BminusV_new, Rminusr_new, 'o')
+        # plt.plot(BminusV_new, filtered_data, '+')
+        # plt.plot(BminusV_new, or_fitted_model(BminusV_new), 'g--', label="model fitted w/ filtered data")
+        # plt.show()
         print(or_fitted_model.c1.value)
-    return corrections, BminusV
+    return corrections, BminusV_new
 
 def mag_error(aij_raw, gain, read_noise, sources):
     #create a magnitude error list
