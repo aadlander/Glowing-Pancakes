@@ -36,7 +36,7 @@ def source_column(source_number):            #REturns the column heading for a s
 
 def uniformize_source_names(aij_tbl):        #Uniformizes the source names in the columns of the measurements file
     import re                                #and creates a list of source numbers starting at 1
-    
+
     data_col = re.compile(r'Source-Sky_[TC](\d+)')
     sources = []
     for c in aij_tbl.colnames:
@@ -79,16 +79,16 @@ def uniformize_source_names(aij_tbl):        #Uniformizes the source names in th
                                       'Y(FITS)_C' + source_number)
             except KeyError:
                 pass
-            
+
     return sources
 
 
 #Define the function to be used to plot the differential magnitudes
 def plot_magnitudes(mags=None, errors=None, times=None, source=None, night=None, ref_mag=0, color=None):
     #calcualte the mean of the magnitudes passed
-    mean = mags.mean()
+    mean = np.nanmean(mags)
     #calcualte the standard deviation of the magntiudes passed
-    std = mags.std()
+    std = np.nanstd(mags)
     #plot the magnitudes vs time
     plt.errorbar(times, mags, yerr=errors, fmt='o',
                  label='{}, stdev: {:5.3f}\nnight: {}'.format(source, std, night))
@@ -104,7 +104,7 @@ def plot_magnitudes(mags=None, errors=None, times=None, source=None, night=None,
     #plt.plot(plt.xlim(), [mean - std, mean - std], 'k:')
     plt.axvline(mean - std, color='gray', linewidth=2)
     #Following Line was commented out:
-    plt.plot(pd.rolling_mean(times, 20, center=True), 
+    plt.plot(pd.rolling_mean(times, 20, center=True),
              pd.rolling_mean(mags, 20, center=True),
              color='gray', linewidth=3)
     # Make sure plot range is at least 0.1 mag...
@@ -115,17 +115,17 @@ def plot_magnitudes(mags=None, errors=None, times=None, source=None, night=None,
     if ylim[1] - ylim[0] < min_range:
         #if less then the mid range then change the y limits to be min_range different
         plt.ylim(mean - min_range/2, mean + min_range/2)
-    
+
     #find the new ylim of the plot
     ylim = plt.ylim()
     # Reverse vertical axis so brighter is higher
     plt.ylim((ylim[1], ylim[0]))
 
-    size = 1000./(mean - ref_mag + 0.1)**2 
-    plt.scatter([0.8*(plt.xlim()[1]-plt.xlim()[0]) + plt.xlim()[0]], 
-                [0.8*(plt.ylim()[1] - plt.ylim()[0]) + plt.ylim()[0]], 
+    size = 1000./(mean - ref_mag + 0.1)**2
+    plt.scatter([0.8*(plt.xlim()[1]-plt.xlim()[0]) + plt.xlim()[0]],
+                [0.8*(plt.ylim()[1] - plt.ylim()[0]) + plt.ylim()[0]],
                 c='red', marker='o', s=size)
-    
+
     plt.title(color)
     plt.legend()
     #send back the mean and the standard deviation of the plot
@@ -162,7 +162,7 @@ def plot_apass_variables(image, disp, vsx_x, vsx_y, vsx_names, apass, in_apass_x
 
     for x, y, m in zip(vsx_x, vsx_y, vsx_names):
         plt.text(x, y, str(m), fontsize=18, color='cyan')
-    
+
     plt.scatter(in_apass_x, in_apass_y, c='none', s=50, edgecolor='yellow', alpha=0.5, marker='o')
 
     apass_in = apass['recno']
@@ -241,7 +241,7 @@ def mag_error(aij_raw, gain, read_noise, sources):
     mag_err = []
     for source in sources:
         #use source_error function to get error in source-sky
-        err = aij_raw[source_error(source)] 
+        err = aij_raw[source_error(source)]
         #calculate the signal to noise ratio
         snr = gain * aij_raw[source_column(source)] / err
         #calculate magnitude error
@@ -250,7 +250,7 @@ def mag_error(aij_raw, gain, read_noise, sources):
         mag_err.append(mag_e)
     return mag_err
 
-def corrected_curves(aij_mags, aij_stars, all_apass_color, all_apass_color_error, apass_index_for_color, BminusV, corrections):
+def corrected_curveses(aij_mags, aij_stars, all_apass_color, all_apass_color_error, apass_index_for_color, BminusV, corrections):
     #create an array to store the corrected curves
     corrected_curves = np.zeros_like(aij_mags)
     #create an array to store the error in the corrected curves
