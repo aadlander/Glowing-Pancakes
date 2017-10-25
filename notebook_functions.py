@@ -6,7 +6,7 @@ from matplotlib import axes
 import pandas as pd
 from astropy.modeling import models, fitting
 from astropy.stats import sigma_clip
-from glowing_waffles.differential_photometry import catalog_search
+from glowing_waffles.differential_photometry import catalog_search, calculate_transform_coefficients
 
 # This function really should be somewhere else eventually.
 def scale_and_downsample(data, downsample=4,
@@ -187,84 +187,51 @@ def get_color(name):
     color_error = name['e_B-V']
     return color, color_error
 
-def color_corrections(aij_stars, aij_mags,apass_index, apass_color, apass_R_mags, good_match):
-    #Changing from huber to astropy fit
+def color_corrections(aij_stars, aij_mags, apass_index, apass_color, apass_R_mags, good_match,
+                      order=1):
+    # Changing from huber to astropy fit
     # Create empty list for the corrections (slope and intercept)
     corrections = []
-    #Create empy list for the error in the corrections
-    fit_error = []
-    all_Rminusr_error = []
+    # Create empy list for the error in the corrections
     all_aij_mags = np.zeros_like(aij_mags)
     for idx, star in enumerate(aij_stars):
         all_aij_mags[idx, :] = star.magnitude
     all_aij_mags = np.ma.masked_invalid(all_aij_mags)
-    #loop over all images
+    # loop over all images
     for idx in range(aij_mags.shape[1]):
-        #create BminusV list
-        # BminusV = []
-        # # Create Rminusr list
-        # Rminusr = []
-        # # loop over the apass_index and the placement in the apass_index
-        # for aij_star, el in enumerate(apass_index):
-        #     # check if the aij star has a corresponding apass match
-        #     if good_match[aij_star]:
-        #         # Make sure the aij stars magnitude in the image isn't friggin huge
-        #         if aij_stars[aij_star].magnitude[idx] < 100:
-        #             # Add the color of that star (according to apass) to the bminusv list
-        #             BminusV.append(apass_color[el])
-        #             # add the difference between aijs magnitude and apass transformed magnitude to the Rminusr list
-        #             Rminusr.append(apass_R_mags[el]-aij_stars[aij_star].magnitude[idx])
-        #         # No idea what this is meant to do
-        #         # if Rminusr[-1] < 20 and idx == 0:
-        #         # print(aij_star)
-
-        # Rminusr_new = np.array([d for d in Rminusr if d != 'masked'])
-        # BminusV_new = np.array([b for b,d in zip(BminusV, Rminusr) if d != 'masked'])
-        # print(len(Rminusr) - len(Rminusr_new))
         these_mags = all_aij_mags[:, idx]
-        Rminusr_new = (apass_R_mags[apass_index] - these_mags)[good_match]
-        BminusV_new = apass_color[apass_index][good_match]
-        # good_stars = np.arange(0, len(aij_stars))[good_match]
-        # good_index = apass_index.copy()[good_match]
-        # tmp_aij_mags = np.array([aij_stars[i].magnitude[idx] for i in good_stars])
-        # # print(len(good_index), len(aij_mags))
-        # Rminusr_new = (apass_R_mags[good_index] - tmp_aij_mags)
-        Rminusr_new = np.ma.masked_invalid(Rminusr_new)
-        # Rmr_mask = Rminusr_new.mask
-        # print(any(Rminusr_new < -30))
-        # print(Rminusr_new.min())
-        # # print(Rmr_mask)
-        # BminusV_new = apass_color[good_index][~Rmr_mask]
-        # Rminusr_new = Rminusr_new[~Rmr_mask]
-        # Rminusr_new = np.ma.masked_invalid(Rminusr_new)
-        # BminusV_new = np.ma.masked_invalid(BminusV_new)
-        combined_mask = Rminusr_new.mask & BminusV_new.mask
-        Rminusr_new = Rminusr_new[~combined_mask]
-        BminusV_new = BminusV_new[~combined_mask]
-        # print(len(BminusV_new), len(Rminusr_new))
-        # Rminusr_new = np.array(Rminusr)
-        # BminusV_new = np.array(BminusV)
+        BminusV = apass_color[apass_index][good_match]
+        r = these_mags[good_match]
+        r = np.ma.masked_invalid(r)
+        R = apass_R_mags[apass_index][good_match]
+        R = np.ma.masked_invalid(R)
+        mask = r.mask | R.mask
+        r.mask = mask
+        R.mask = mask
+        BminusV = BminusV.compress(~mask)
+        R = R.compressed()
+        r = r.compressed()
         # Astropy Fit
-        g_init = models.Polynomial1D(1)
-        fit = fitting.LevMarLSQFitter()
-        or_fit = fitting.FittingWithOutlierRemoval(fit, sigma_clip, niter=3, sigma=2.0)
-        # get fitted model and filtered data
-        filtered_data, or_fitted_model = or_fit(g_init, BminusV_new, Rminusr_new)
-        # fitted_model = fit(g_init, BminusV_new, Rminusr_new)
-        # print(fitted_model)
-        # append corrections data to list
-        fit_list = [or_fitted_model.c1.value, or_fitted_model.c0.value]
+
+        filtered_data, or_fitted_model = calculate_transform_coefficients(r, R, BminusV,
+                                                                          order=order)
+        if order == 1:
+            fit_list = [or_fitted_model.c1.value, or_fitted_model.c0.value]
+        elif order == 2:
+            fit_list = [or_fitted_model.c2.value, or_fitted_model.c1.value, or_fitted_model.c0.value]
+
         corrections.append(fit_list)
 
-        # plt.ylim(or_fitted_model.c0.value - 0.5,
-        #          or_fitted_model.c0.value + 0.5)
-        # plt.title(idx)
-        # plt.plot(BminusV_new, Rminusr_new, 'o')
-        # plt.plot(BminusV_new, filtered_data, '+')
-        # plt.plot(BminusV_new, or_fitted_model(BminusV_new), 'g--', label="model fitted w/ filtered data")
-        # plt.show()
+        plt.ylim(or_fitted_model.c0.value - 0.5,
+                 or_fitted_model.c0.value + 0.5)
+        plt.title(idx)
+        plt.plot(BminusV, R - r, 'o')
+        plt.plot(BminusV, filtered_data, '+')
+        plt.plot(BminusV, or_fitted_model(BminusV), 'gx', label="model fitted w/ filtered data")
+        plt.show()
         print(or_fitted_model.c1.value)
-    return corrections, BminusV_new
+
+    return corrections, BminusV, R - r
 
 def mag_error(aij_raw, gain, read_noise, sources):
     #create a magnitude error list
@@ -280,45 +247,29 @@ def mag_error(aij_raw, gain, read_noise, sources):
         mag_err.append(mag_e)
     return mag_err
 
-def corrected_curveses(aij_mags, aij_stars, all_apass_color, all_apass_color_error, apass_index_for_color, BminusV, corrections):
-    #create an array to store the corrected curves
+
+def corrected_curveses(aij_mags, aij_stars, all_apass_color, all_apass_color_error,
+                       apass_index_for_color, BminusV, corrections,
+                       include_color_term=True):
     corrected_curves = np.zeros_like(aij_mags)
-    #create an array to store the error in the corrected curves
-    corrected_curves_er = np.zeros_like(aij_mags)
-    #create an array to store the signal to noise ratios for all stars
-    all_SNR = np.zeros_like(aij_mags)
-    #loop over all of the stars
+    corrections_good = np.array(corrections)
+
+    all_aij_mags = np.zeros_like(aij_mags)
+    for idx, star in enumerate(aij_stars):
+        all_aij_mags[idx, :] = star.magnitude
+    all_aij_mags = np.ma.masked_invalid(all_aij_mags)
+    # loop over all of the stars
     for obj in range(len(aij_stars)):
-        #print a little update just to know where the progress is at
-        print('here in the object loop, we are now studying object number', str(obj))
-        #initialize a list to store the magnitudes for that star
-        tmp_data = []
-        #initialse a list to store the error
-        tmp_data_er = []
-        #get the error in the apass color for the star
-        er_BV = all_apass_color_error[apass_index_for_color[obj]]
-        #get the apass color for the star
-        BminusV = all_apass_color[apass_index_for_color[obj]]
-        #loop over all of the images
-        for image in range(aij_mags.shape[1]):
-            ###Date | get the date of the image using glowing waffles
-            JD = aij_stars[0].mjd_start[image]
-            ###Magnitude | calculate the color term for the star in the image (BminusV * slope)
-            color_term = BminusV*corrections[image][0]
-            #define the slope intercept
-            intercept = corrections[image][1]
-            #define the instrumental magnitude
-            old_mag = aij_stars[obj].magnitude[image]
-            #calculate the new magnitdue (instrumental + slope intercept + color term)
-            new_mag = old_mag+intercept+color_term
-            if obj == 0 and image == 0:
-                print(color_term)
-                print(intercept)
-                print(old_mag)
-                print(new_mag)
-            #add the new apass corrected magnitude to the list of magnitudes for that star
-            tmp_data.append(new_mag)
-        corrected_curves[obj] = np.array(tmp_data)
+        # get the apass color for the star
+        BminusV = np.array(all_apass_color[apass_index_for_color[obj]])
+        color_term = 0
+        if include_color_term:
+            n_terms = len(corrections_good[0, :]) - 1
+            for idx in range(n_terms):
+                power = n_terms - idx
+                color_term += corrections_good[:, idx] * BminusV**power
+
+        old_mag = all_aij_mags[obj, :]
+        new_mag = old_mag + color_term + corrections_good[:, -1]
+        corrected_curves[obj] = np.array(new_mag)
     return corrected_curves
-
-
